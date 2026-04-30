@@ -120,10 +120,10 @@ function App() {
           ? 'Usable product with moderate quality. Some process improvement may still be needed.'
           : 'Strong and uniform pot. Parameters are within the recommended forming range.';
 
-    const fiberMassA = Math.max(0, fiberMass) * 0.5;
-    const binderVolumeA = Math.max(0, binderVolume) * 16;
-    const molderTempA = clamp(molderTemperature * 0.55, -50, 300);
-    const pressingTimeA = Math.max(0, pressingTime) * 5;
+    const fiberMassA = Math.max(0, fiberMass);
+    const binderVolumeA = Math.max(0, binderVolume);
+    const molderTempA = clamp(molderTemperature, -50, 300);
+    const pressingTimeA = Math.max(0, pressingTime);
     const wallThicknessA = potThicknessCm;
     const potHeightA = Number(potHeight);
 
