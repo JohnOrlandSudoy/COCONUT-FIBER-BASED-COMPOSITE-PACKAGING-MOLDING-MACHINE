@@ -27,6 +27,7 @@ function App() {
     binderVolume: 15,
     molderTemperature: 180,
     pressingTime: 8,
+    mixingTime: 12,
   });
 
   type ParamKey = keyof typeof params;
@@ -43,7 +44,7 @@ function App() {
     const potThickness = (2 + binderViscosity / 500).toFixed(1);
 
     const binderAbsorption = isActive ? Math.min(95, binderViscosity / 10 + binderVolume * 2).toFixed(1) : '0.0';
-    const stickiness = binderViscosity > 300 ? 'High' : binderViscosity > 150 ? 'Medium' : 'Low';
+    const stickiness = Math.max(0, binderViscosity).toFixed(0);
     const bondingStrength = isActive
       ? Math.min(100, molderTemperature / 2 + pressingTime * 2).toFixed(1)
       : '0.0';

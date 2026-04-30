@@ -76,12 +76,9 @@ export default function ProcessDataPanel({ data }: ProcessDataPanelProps) {
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-gray-500 flex items-center gap-1">
-                <ShieldCheck size={12} /> Stickiness
+                <ShieldCheck size={12} /> Stickiness (cP)
               </span>
-              <span className={`font-bold ${
-                data.stickiness === 'High' ? 'text-orange-400' : 
-                data.stickiness === 'Medium' ? 'text-yellow-400' : 'text-green-400'
-              }`}>{data.stickiness}</span>
+              <span className="text-orange-400 font-mono font-bold">{data.stickiness} cP</span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-gray-500 flex items-center gap-1">

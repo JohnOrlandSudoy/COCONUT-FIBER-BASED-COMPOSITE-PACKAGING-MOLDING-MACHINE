@@ -1,6 +1,6 @@
 import { Beaker, Droplets, Thermometer, Timer } from 'lucide-react';
 
-type ParamKey = 'binderViscosity' | 'binderVolume' | 'molderTemperature' | 'pressingTime';
+type ParamKey = 'binderViscosity' | 'binderVolume' | 'molderTemperature' | 'pressingTime' | 'mixingTime';
 
 interface ProcessControlsProps {
   params: {
@@ -8,6 +8,7 @@ interface ProcessControlsProps {
     binderVolume: number;
     molderTemperature: number;
     pressingTime: number;
+    mixingTime: number;
   };
   onParamChange: (key: ParamKey, value: number) => void;
 }
@@ -24,7 +25,7 @@ export default function ProcessControls({ params, onParamChange }: ProcessContro
         <div className="p-4 space-y-4">
           <div className="space-y-1.5">
             <label className="text-[10px] uppercase tracking-wider text-gray-500 font-bold flex items-center gap-1">
-              <Droplets size={12} /> Binder Viscosity (mPa·s)
+              <Droplets size={12} /> Binder Viscosity (cP)
             </label>
             <input
               type="number"
@@ -69,9 +70,20 @@ export default function ProcessControls({ params, onParamChange }: ProcessContro
               className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm text-[#00ff88] focus:border-[#00ff88] outline-none transition-colors"
             />
           </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase tracking-wider text-gray-500 font-bold flex items-center gap-1">
+              <Timer size={12} /> Mixing Time (s)
+            </label>
+            <input
+              type="number"
+              value={params.mixingTime}
+              onChange={(e) => onParamChange('mixingTime', Number(e.target.value))}
+              className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm text-[#00ff88] focus:border-[#00ff88] outline-none transition-colors"
+            />
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
