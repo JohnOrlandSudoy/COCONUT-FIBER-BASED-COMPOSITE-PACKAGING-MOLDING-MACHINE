@@ -215,6 +215,89 @@ Example default inputs:
    - Each parameter is compared against recommended ranges and labeled:
      - LOW / PROBLEM, RECOMMENDED, HIGH / PROBLEM
 
+## Formula Reference (Ginamit at Basehan)
+
+### Pinanggalingan (Basis)
+
+Ang formulas at thresholds na ginagamit sa demo ay naka-base sa **tables na pinrovide mo** sa report/slide:
+
+- **A. Parameter Threshold Table** (recommended ranges + meaning)
+- **B. Formula Table with Labels and Threshold Meaning** (F1, F2, F4, F5, F6, F10, F11)
+- **C. Result Classification Labels** (DEFECTIVE / ACCEPTABLE / EXCELLENT)
+
+Implementation location:
+
+- Main computations: [App.tsx](file:///c:/Users/ADMIN/Desktop/animated/src/App.tsx)
+- UI display: [ProcessDataPanel.tsx](file:///c:/Users/ADMIN/Desktop/animated/src/components/ProcessDataPanel.tsx)
+
+### Eksaktong formulas (as used in the code)
+
+Notation:
+
+- `μ` = effective viscosity (cP)
+- `U` = uniformity (0–1)
+- `Q` = binder flow rate (L/min)
+- `V` = binder volume (mL) or liters depending on the step
+- `T` = molder temperature (°C)
+- `Ttank` = binder tank temperature (°C)
+- `P` = normalized pressing effect (0–1)
+
+1) **Effective viscosity (μ)**  
+   - `viscosityTempFactor = clamp(1 - (Ttank - 25)*0.006, 0.35, 1.4)`  
+   - `μ = binderViscosity * viscosityTempFactor`
+
+2) **Uniformity (U)** *(derived helper for simulation)*  
+   - `U = clamp(0.35 + mixingTime/20 - μ/1200 + (Ttank - 25)*0.002, 0, 1)`
+
+3) **F1: Binder Flow Rate**  
+   - `Q = Q0 / (1 + μ/k)`  
+   - constants used: `Q0 = 3.2`, `k = 220`
+
+4) **F2: Mixing Time (calculated)**  
+   - `V_L = binderVolume/1000` (mL → L)  
+   - `t_mix = (V_L/Q) * 60 * (1/U)`
+
+5) **F4: Binder Absorption**  
+   - `A = clamp(A0 + k1*U + k2*T + k3*V, 0, 100)`  
+   - constants used: `A0 = 5`, `k1 = 35`, `k2 = 0.18`, `k3 = 0.06`
+
+6) **F5: Bonding Strength** *(weighted)*  
+   - `pressSec = pressingTime*5`  
+   - `P = clamp((pressSec - 30)/20, 0, 1)`  
+   - `Tn = clamp((T - 80)/30, 0, 1)`  
+   - `Sn = clamp(μ/350, 0, 1)`  
+   - `An = clamp(A/100, 0, 1)`  
+   - `B = clamp(0.35*Sn + 0.25*An + 0.20*Tn + 0.20*P, 0, 1)`  
+   - `BondingStrength(%) = B*100`
+
+7) **F6: Final Weight Conservation**  
+   - `binderMass = binderVolume * 0.85` *(assumption: ~0.85 g/mL density)*  
+   - `wetMass = fiberMass + binderMass`  
+   - `Mf = clamp(0.22 - (T - 80)*0.0012 + V*0.0001, 0.02, 0.22)` *(moisture factor helper)*  
+   - `waterLoss = wetMass * Mf * moistureLossScale`  
+   - `finalWeight = wetMass - waterLoss`
+
+8) **F10: Defect Risk** *(0–100%)*  
+   - `viscosityError = clamp(|μ - 250|/250, 0, 1)`  
+   - `D = clamp((1-U) + (1-B) + Mf + viscosityError, 0, 3)`  
+   - `DefectRisk(%) = (D/3)*100`
+
+9) **F11: Quality Score**  
+   - `Qs = clamp(0.30*U + 0.35*B + 0.20*Tn + 0.15*P, 0, 1)`  
+   - `QualityScore(%) = Qs*100`
+
+### Classification thresholds (Table C)
+
+- `< 60%` → **DEFECTIVE**
+- `60%–84%` → **ACCEPTABLE**
+- `>= 85%` → **EXCELLENT / GOOD POT**
+
+### Notes (Calibration / Assumptions)
+
+- Ang formulas na ito ay **simulation-oriented** at kailangan i-calibrate gamit actual prototype test data (tulad ng note sa tables).
+- `0.85 g/mL` binder density ay **engineering approximation**.
+- `U` at `Mf` ay helper variables para gumalaw ang system kahit limited inputs; pwedeng palitan ng measured uniformity/moisture content kapag may data na.
+
 ## 3D Model Files
 
 Model files are inside:
