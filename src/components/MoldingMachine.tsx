@@ -41,6 +41,8 @@ interface MoldingMachineProps {
   playing: boolean;
   speed: number;
   pressingTime: number;
+  mixingTime: number;
+  fiberMass: number;
   onPhaseChange: (phase: string) => void;
   onProgress: (progress: number) => void;
   onPartClick: (name: string, info: string, x: number, y: number) => void;
@@ -98,6 +100,8 @@ export default function MoldingMachine({
   playing,
   speed,
   pressingTime,
+  mixingTime,
+  fiberMass,
   onPhaseChange,
   onProgress,
   onPartClick,
@@ -150,6 +154,9 @@ export default function MoldingMachine({
 
   const playingRef = useRef(playing);
   const speedRef = useRef(speed);
+  const pressingTimeRef = useRef(pressingTime);
+  const mixingTimeRef = useRef(mixingTime);
+  const fiberMassRef = useRef(fiberMass);
   const onPhaseChangeRef = useRef(onPhaseChange);
   const onProgressRef = useRef(onProgress);
   const onPartClickRef = useRef(onPartClick);
@@ -162,6 +169,18 @@ export default function MoldingMachine({
   useEffect(() => {
     speedRef.current = speed;
   }, [speed]);
+
+  useEffect(() => {
+    pressingTimeRef.current = pressingTime;
+  }, [pressingTime]);
+
+  useEffect(() => {
+    mixingTimeRef.current = mixingTime;
+  }, [mixingTime]);
+
+  useEffect(() => {
+    fiberMassRef.current = fiberMass;
+  }, [fiberMass]);
 
   useEffect(() => {
     onPhaseChangeRef.current = onPhaseChange;
@@ -1648,7 +1667,7 @@ export default function MoldingMachine({
       }
 
       const t = tRef.current;
-      const phase = getPhase(t, pressingTime);
+      const phase = getPhase(t, pressingTimeRef.current);
       if (phase !== lastPhaseRef.current) {
         lastPhaseRef.current = phase;
         onPhaseChangeRef.current(phase);
@@ -1659,7 +1678,8 @@ export default function MoldingMachine({
       const alphaPress = expAlpha(delta, 18);
 
       const rotor = partRefs.current.get('Comp_MixerRotor');
-      if (rotor) rotor.rotation.y += delta * 2;
+      const mixFactor = Math.min(3, Math.max(0.2, mixingTimeRef.current / 12));
+      if (rotor) rotor.rotation.y += delta * 2 * mixFactor;
 
       // Hopper Fiber Addition Animation
       if (hopperUpperRef.current) {
@@ -1667,17 +1687,28 @@ export default function MoldingMachine({
         const hBottom = hopperPosRef.current.y;
         const hRange = hTop - hBottom;
         const hopperActive = t < 5; // Active during feeding and filling
-        const fiberCountToLoop = 80; // Match the new hopperFiberCount
-        
-        for (let i = 0; i < fiberCountToLoop; i++) {
+        const desiredCount = Math.max(
+          0,
+          Math.min(hopperFiberCount, Math.round((Math.max(0, fiberMassRef.current) / 500) * hopperFiberCount)),
+        );
+        const swirlSpeed = 1.2 + mixFactor * 0.4;
+        const massFactor = Math.min(1.6, Math.max(0.2, Math.max(0, fiberMassRef.current) / 500));
+
+        for (let i = 0; i < hopperFiberCount; i++) {
           if (!hopperActive) {
             tmpM4.makeScale(0, 0, 0);
             hopperFiberMesh.setMatrixAt(i, tmpM4);
             continue;
           }
+
+          if (i >= desiredCount) {
+            tmpM4.makeScale(0, 0, 0);
+            hopperFiberMesh.setMatrixAt(i, tmpM4);
+            continue;
+          }
           
-          const offset = (i / fiberCountToLoop) * 2;
-          const progress = ((t * 1.5 + offset) % 1.0);
+          const offset = (i / Math.max(1, desiredCount)) * 2;
+          const progress = ((t * swirlSpeed + offset) % 1.0);
           const y = hTop - progress * hRange;
           
           // Add some jitter/spiral effect
@@ -1687,7 +1718,7 @@ export default function MoldingMachine({
           const z = hopperTopPosRef.current.z + Math.sin(angle) * r;
           
           tmpV1.set(x, y, z);
-          const s = 1.0 + Math.sin(i + t) * 0.4; // Larger scale factor for hopper fibers
+          const s = massFactor * (0.85 + Math.sin(i + t) * 0.35);
           tmpM4.makeTranslation(tmpV1.x, tmpV1.y, tmpV1.z);
           tmpM4.multiply(tmpM4_2.makeScale(s, s, s));
           hopperFiberMesh.setMatrixAt(i, tmpM4);
@@ -1738,10 +1769,17 @@ export default function MoldingMachine({
       }
 
       let pressAmount = 0;
-      if (t < 6) pressAmount = 0;
-      else if (t < 8) pressAmount = ramp(t, 6, 8);
-      else if (t < 10) pressAmount = 1;
-      else if (t < 11) pressAmount = 1 - ramp(t, 10, 11);
+      const pressStart = 6;
+      const pressDuration = Math.max(0.25, pressingTimeRef.current * 0.25);
+      const holdDuration = Math.max(0.25, pressingTimeRef.current * 0.25);
+      const pressEnd = pressStart + pressDuration;
+      const holdEnd = pressEnd + holdDuration;
+      const releaseEnd = holdEnd + 1;
+
+      if (t < pressStart) pressAmount = 0;
+      else if (t < pressEnd) pressAmount = ramp(t, pressStart, pressEnd);
+      else if (t < holdEnd) pressAmount = 1;
+      else if (t < releaseEnd) pressAmount = 1 - ramp(t, holdEnd, releaseEnd);
       else pressAmount = 0;
 
       const manualStart = manualPressStartRef.current;

@@ -25,7 +25,9 @@ function App() {
   const [params, setParams] = useState({
     binderViscosity: 250,
     binderVolume: 15,
+    fiberMass: 500,
     molderTemperature: 180,
+    binderTankTemperature: 60,
     pressingTime: 8,
     mixingTime: 12,
   });
@@ -33,20 +35,37 @@ function App() {
   type ParamKey = keyof typeof params;
 
   const processData = useMemo(() => {
-    const { binderViscosity, binderVolume, molderTemperature, pressingTime } = params;
+    const {
+      binderViscosity,
+      binderVolume,
+      fiberMass,
+      molderTemperature,
+      binderTankTemperature,
+      pressingTime,
+      mixingTime,
+    } = params;
 
     const isActive = phase !== 'IDLE' && phase !== 'READY';
 
-    const sprayerFlow = isActive ? (binderVolume / 2.5).toFixed(1) : '0.0';
-    const sprayCycle = isActive ? (binderViscosity / 100).toFixed(1) : '0.0';
-    const potHeight = (10 + binderVolume / 10).toFixed(1);
-    const potWeight = (binderVolume * 0.85 + 5).toFixed(1);
-    const potThickness = (2 + binderViscosity / 500).toFixed(1);
+    const safeTankTemp = Math.max(-50, Math.min(200, binderTankTemperature));
+    const viscosityTempFactor = Math.min(1.4, Math.max(0.35, 1 - (safeTankTemp - 25) * 0.006));
+    const effectiveViscosity = Math.max(0, binderViscosity * viscosityTempFactor);
 
-    const binderAbsorption = isActive ? Math.min(95, binderViscosity / 10 + binderVolume * 2).toFixed(1) : '0.0';
-    const stickiness = Math.max(0, binderViscosity).toFixed(0);
+    const tempFlowFactor = Math.min(1.6, Math.max(0.5, 1 + (safeTankTemp - 25) * 0.01));
+    const sprayerFlow = isActive ? ((binderVolume / 2.5) * tempFlowFactor).toFixed(1) : '0.0';
+    const sprayCycle = isActive ? (effectiveViscosity / 100).toFixed(1) : '0.0';
+
+    const fiberPerPot = Math.max(0, fiberMass) / 100;
+    const potHeight = (10 + binderVolume / 10 + fiberPerPot * 0.02).toFixed(1);
+    const potWeight = (binderVolume * 0.85 + fiberPerPot + 5).toFixed(1);
+    const potThickness = (2 + effectiveViscosity / 500 + Math.min(0.6, Math.max(0, (mixingTime - 8) / 40))).toFixed(1);
+
+    const binderAbsorption = isActive
+      ? Math.min(95, effectiveViscosity / 10 + binderVolume * 2 + fiberPerPot * 0.8).toFixed(1)
+      : '0.0';
+    const stickiness = Math.max(0, effectiveViscosity).toFixed(0);
     const bondingStrength = isActive
-      ? Math.min(100, molderTemperature / 2 + pressingTime * 2).toFixed(1)
+      ? Math.min(100, molderTemperature / 2 + pressingTime * 2 + mixingTime * 0.8).toFixed(1)
       : '0.0';
 
     return {
@@ -118,6 +137,8 @@ function App() {
           playing={playing}
           speed={speed}
           pressingTime={params.pressingTime}
+          mixingTime={params.mixingTime}
+          fiberMass={params.fiberMass}
           onPhaseChange={handlePhaseChange}
           onProgress={handleProgress}
           onPartClick={handlePartClick}

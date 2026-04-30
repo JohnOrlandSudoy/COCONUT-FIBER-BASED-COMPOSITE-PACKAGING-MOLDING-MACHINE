@@ -1,12 +1,21 @@
-import { Beaker, Droplets, Thermometer, Timer } from 'lucide-react';
+import { Beaker, Droplets, Thermometer, Timer, Weight } from 'lucide-react';
 
-type ParamKey = 'binderViscosity' | 'binderVolume' | 'molderTemperature' | 'pressingTime' | 'mixingTime';
+type ParamKey =
+  | 'binderViscosity'
+  | 'binderVolume'
+  | 'fiberMass'
+  | 'molderTemperature'
+  | 'binderTankTemperature'
+  | 'pressingTime'
+  | 'mixingTime';
 
 interface ProcessControlsProps {
   params: {
     binderViscosity: number;
     binderVolume: number;
+    fiberMass: number;
     molderTemperature: number;
+    binderTankTemperature: number;
     pressingTime: number;
     mixingTime: number;
   };
@@ -49,12 +58,36 @@ export default function ProcessControls({ params, onParamChange }: ProcessContro
 
           <div className="space-y-1.5">
             <label className="text-[10px] uppercase tracking-wider text-gray-500 font-bold flex items-center gap-1">
+              <Weight size={12} /> Fiber Mass (g)
+            </label>
+            <input
+              type="number"
+              value={params.fiberMass}
+              onChange={(e) => onParamChange('fiberMass', Number(e.target.value))}
+              className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm text-[#00ff88] focus:border-[#00ff88] outline-none transition-colors"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase tracking-wider text-gray-500 font-bold flex items-center gap-1">
               <Thermometer size={12} /> Molder Temperature (°C)
             </label>
             <input
               type="number"
               value={params.molderTemperature}
               onChange={(e) => onParamChange('molderTemperature', Number(e.target.value))}
+              className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm text-[#00ff88] focus:border-[#00ff88] outline-none transition-colors"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase tracking-wider text-gray-500 font-bold flex items-center gap-1">
+              <Thermometer size={12} /> Binder Tank Temperature (°C)
+            </label>
+            <input
+              type="number"
+              value={params.binderTankTemperature}
+              onChange={(e) => onParamChange('binderTankTemperature', Number(e.target.value))}
               className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm text-[#00ff88] focus:border-[#00ff88] outline-none transition-colors"
             />
           </div>
