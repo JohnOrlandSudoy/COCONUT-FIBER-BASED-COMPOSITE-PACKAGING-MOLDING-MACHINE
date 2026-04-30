@@ -35,6 +35,18 @@ function App() {
   type ParamKey = keyof typeof params;
 
   const processData = useMemo(() => {
+    const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+    const classify = (v: number, recMin: number, recMax: number) => {
+      if (v < recMin) return 'LOW / PROBLEM';
+      if (v > recMax) return 'HIGH / PROBLEM';
+      return 'RECOMMENDED';
+    };
+    const classifyColor = (status: string) => {
+      if (status === 'RECOMMENDED' || status === 'ACCEPTABLE' || status === 'EXCELLENT') return 'ok';
+      if (status === 'LOW / PROBLEM' || status === 'DEFECTIVE') return 'low';
+      return 'high';
+    };
+
     const {
       binderViscosity,
       binderVolume,
@@ -47,36 +59,160 @@ function App() {
 
     const isActive = phase !== 'IDLE' && phase !== 'READY';
 
-    const safeTankTemp = Math.max(-50, Math.min(200, binderTankTemperature));
-    const viscosityTempFactor = Math.min(1.4, Math.max(0.35, 1 - (safeTankTemp - 25) * 0.006));
-    const effectiveViscosity = Math.max(0, binderViscosity * viscosityTempFactor);
+    const safeTankTemp = clamp(binderTankTemperature, -50, 200);
+    const viscosityTempFactor = clamp(1 - (safeTankTemp - 25) * 0.006, 0.35, 1.4);
+    const mu = Math.max(0, binderViscosity * viscosityTempFactor);
 
-    const tempFlowFactor = Math.min(1.6, Math.max(0.5, 1 + (safeTankTemp - 25) * 0.01));
-    const sprayerFlow = isActive ? ((binderVolume / 2.5) * tempFlowFactor).toFixed(1) : '0.0';
-    const sprayCycle = isActive ? (effectiveViscosity / 100).toFixed(1) : '0.0';
+    const U = clamp(0.35 + mixingTime / 20 - mu / 1200 + (safeTankTemp - 25) * 0.002, 0, 1);
 
-    const fiberPerPot = Math.max(0, fiberMass) / 100;
-    const potHeight = (10 + binderVolume / 10 + fiberPerPot * 0.02).toFixed(1);
-    const potWeight = (binderVolume * 0.85 + fiberPerPot + 5).toFixed(1);
-    const potThickness = (2 + effectiveViscosity / 500 + Math.min(0.6, Math.max(0, (mixingTime - 8) / 40))).toFixed(1);
+    const Q0 = 3.2;
+    const k = 220;
+    const Q = Q0 / (1 + mu / k);
+    const binderFlowRate = isActive ? Q.toFixed(2) : '0.00';
 
-    const binderAbsorption = isActive
-      ? Math.min(95, effectiveViscosity / 10 + binderVolume * 2 + fiberPerPot * 0.8).toFixed(1)
-      : '0.0';
-    const stickiness = Math.max(0, effectiveViscosity).toFixed(0);
-    const bondingStrength = isActive
-      ? Math.min(100, molderTemperature / 2 + pressingTime * 2 + mixingTime * 0.8).toFixed(1)
-      : '0.0';
+    const V_L = Math.max(0, binderVolume) / 1000;
+    const mixingTimeCalcSec = isActive ? ((V_L / Math.max(0.01, Q)) * 60 * (1 / Math.max(0.05, U))).toFixed(1) : '0.0';
+
+    const A0 = 5;
+    const k1 = 35;
+    const k2 = 0.18;
+    const k3 = 0.06;
+    const absorptionPct = isActive ? clamp(A0 + k1 * U + k2 * molderTemperature + k3 * Math.max(0, binderVolume), 0, 100) : 0;
+    const binderAbsorption = absorptionPct.toFixed(1);
+
+    const stickiness = Math.max(0, mu).toFixed(0);
+
+    const pressSec = Math.max(0, pressingTime) * 5;
+    const P = clamp((pressSec - 30) / 20, 0, 1);
+    const Tn = clamp((molderTemperature - 80) / 30, 0, 1);
+    const Sn = clamp(mu / 350, 0, 1);
+    const An = clamp(absorptionPct / 100, 0, 1);
+
+    const bondingStrengthN = clamp(0.35 * Sn + 0.25 * An + 0.20 * Tn + 0.20 * P, 0, 1);
+    const bondingStrength = (bondingStrengthN * 100).toFixed(1);
+
+    const binderMassG = Math.max(0, binderVolume) * 0.85;
+    const Mf = clamp(0.22 - (molderTemperature - 80) * 0.0012 + Math.max(0, binderVolume) * 0.0001, 0.02, 0.22);
+    const waterLossG = (Math.max(0, fiberMass) + binderMassG) * Mf;
+    const finalWeightG = Math.max(0, fiberMass) + binderMassG - waterLossG;
+
+    const potWeight = finalWeightG.toFixed(1);
+    const potHeight = clamp(9.1 - 0.6 * P + 0.25 * (U - 0.6) + Math.max(0, binderVolume) / 400, 8.0, 10.2).toFixed(2);
+    const potThicknessCm = clamp(1.45 + 0.25 * (1 - U) + 0.20 * (1 - bondingStrengthN) + 0.02, 1.0, 2.3);
+    const potThickness = potThicknessCm.toFixed(2);
+
+    const viscosityTarget = 250;
+    const viscosityError = clamp(Math.abs(mu - viscosityTarget) / viscosityTarget, 0, 1);
+    const defectRiskN = clamp((1 - U) + (1 - bondingStrengthN) + Mf + viscosityError, 0, 3);
+    const defectRisk = ((defectRiskN / 3) * 100).toFixed(1);
+
+    const qualityScoreN = clamp(0.30 * U + 0.35 * bondingStrengthN + 0.20 * Tn + 0.15 * P, 0, 1);
+    const qualityScoreNum = qualityScoreN * 100;
+    const qualityScore = qualityScoreNum.toFixed(1);
+    const qualityLabel = qualityScoreNum < 60 ? 'DEFECTIVE' : qualityScoreNum < 85 ? 'ACCEPTABLE' : 'EXCELLENT / GOOD POT';
+    const qualityMeaning =
+      qualityScoreNum < 60
+        ? 'Poor forming conditions. Product may have weak bonding, uneven walls, excess moisture, or deformation.'
+        : qualityScoreNum < 85
+          ? 'Usable product with moderate quality. Some process improvement may still be needed.'
+          : 'Strong and uniform pot. Parameters are within the recommended forming range.';
+
+    const fiberMassA = Math.max(0, fiberMass) * 0.5;
+    const binderVolumeA = Math.max(0, binderVolume) * 16;
+    const molderTempA = clamp(molderTemperature * 0.55, -50, 300);
+    const pressingTimeA = Math.max(0, pressingTime) * 5;
+    const wallThicknessA = potThicknessCm;
+    const potHeightA = Number(potHeight);
+
+    const thresholdsA = [
+      {
+        id: 'P1',
+        parameter: 'Fiber Mass',
+        value: fiberMassA,
+        unit: 'g',
+        status: classify(fiberMassA, 237.5, 262.5),
+        effect: 'Affects final weight, density, wall filling, and compression load.',
+      },
+      {
+        id: 'P2',
+        parameter: 'Binder Volume',
+        value: binderVolumeA,
+        unit: 'mL',
+        status: classify(binderVolumeA, 237.5, 262.5),
+        effect: 'Controls bonding, moisture absorption, and defect risk.',
+      },
+      {
+        id: 'P3',
+        parameter: 'Binder Viscosity',
+        value: mu,
+        unit: 'cP',
+        status: classify(mu, 150, 350),
+        effect: 'Controls flow rate, stickiness, penetration, and mixing quality.',
+      },
+      {
+        id: 'P4',
+        parameter: 'Molder Temperature',
+        value: molderTempA,
+        unit: '°C',
+        status: classify(molderTempA, 90, 100),
+        effect: 'Controls moisture removal, binder curing, and bonding quality.',
+      },
+      {
+        id: 'P5',
+        parameter: 'Pressing Time',
+        value: pressingTimeA,
+        unit: 's',
+        status: classify(pressingTimeA, 30, 50),
+        effect: 'Controls compaction, wall formation, and curing duration.',
+      },
+      {
+        id: 'P6',
+        parameter: 'Fiber Uniformity',
+        value: U,
+        unit: '0–1',
+        status: classify(U, 0.6, 0.8),
+        effect: 'Controls wall thickness stability and defect risk.',
+      },
+      {
+        id: 'P10',
+        parameter: 'Wall Thickness',
+        value: wallThicknessA,
+        unit: 'cm',
+        status: classify(wallThicknessA, 1.3, 1.7),
+        effect: 'Shows wall formation quality and material distribution.',
+      },
+      {
+        id: 'P11',
+        parameter: 'Pot Height',
+        value: potHeightA,
+        unit: 'cm',
+        status: classify(potHeightA, 8.8, 9.2),
+        effect: 'Shows dimensional accuracy after pressing.',
+      },
+      {
+        id: 'P12',
+        parameter: 'Quality Score',
+        value: qualityScoreNum,
+        unit: '%',
+        status: qualityScoreNum < 60 ? 'DEFECTIVE' : qualityScoreNum < 85 ? 'ACCEPTABLE' : 'EXCELLENT',
+        effect: 'Overall weighted evaluation of process success.',
+      },
+    ].map((x) => ({ ...x, tone: classifyColor(x.status) }));
 
     return {
-      sprayerFlow,
-      sprayCycle,
+      binderFlowRate,
+      mixingTimeCalcSec,
       potHeight,
       potWeight,
       potThickness,
       binderAbsorption,
       stickiness,
       bondingStrength,
+      defectRisk,
+      qualityScore,
+      qualityLabel,
+      qualityMeaning,
+      thresholdsA,
     };
   }, [params, phase]);
 
