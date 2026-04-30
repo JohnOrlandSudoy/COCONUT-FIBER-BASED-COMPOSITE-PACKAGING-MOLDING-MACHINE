@@ -4,8 +4,9 @@ import Controls from './components/Controls';
 import Tooltip from './components/Tooltip';
 import PhaseDisplay from './components/PhaseDisplay';
 import ProcessDataPanel from './components/ProcessDataPanel';
+import ProcessControls from './components/ProcessControls';
 
-import { Activity, LayoutPanelLeft } from 'lucide-react';
+import { Activity } from 'lucide-react';
 
 function App() {
   const [playing, setPlaying] = useState(true);
@@ -21,34 +22,31 @@ function App() {
   const [resetTrigger, setResetTrigger] = useState(0);
   const [showData, setShowData] = useState(false);
 
-  // Automatic process parameters (can vary slightly per cycle)
-  const autoParams = useMemo(() => {
-    // Deterministic "randomness" based on resetTrigger or simulation time
-    const seed = resetTrigger * 1.5;
-    return {
-      binderViscosity: 240 + Math.sin(seed) * 20, // 220-260 mPa·s
-      binderVolume: 14 + Math.cos(seed * 0.5) * 2, // 12-16 mL
-      molderTemperature: 175 + Math.sin(seed * 0.8) * 5, // 170-180 °C
-      pressingTime: 8, // fixed 8s for simulation stability
-    };
-  }, [resetTrigger]);
+  const [params, setParams] = useState({
+    binderViscosity: 250,
+    binderVolume: 15,
+    molderTemperature: 180,
+    pressingTime: 8,
+  });
 
-  // Derived process data (automatic)
+  type ParamKey = keyof typeof params;
+
   const processData = useMemo(() => {
-    const { binderViscosity, binderVolume, molderTemperature, pressingTime } = autoParams;
-    
-    // Automatic logic: show data updates during the cycle
+    const { binderViscosity, binderVolume, molderTemperature, pressingTime } = params;
+
     const isActive = phase !== 'IDLE' && phase !== 'READY';
-    
-    const sprayerFlow = isActive ? (binderVolume / 2.5 + Math.random() * 0.2).toFixed(1) : "0.0";
-    const sprayCycle = isActive ? (binderViscosity / 100).toFixed(1) : "0.0";
-    const potHeight = (11.2 + Math.sin(resetTrigger) * 0.3).toFixed(1);
-    const potWeight = (17.5 + Math.cos(resetTrigger) * 0.5).toFixed(1);
-    const potThickness = (2.4 + Math.abs(Math.sin(resetTrigger)) * 0.2).toFixed(1);
-    
-    const binderAbsorption = isActive ? Math.min(98, (binderViscosity / 12 + binderVolume * 2.2 + Math.random())).toFixed(1) : "0.0";
-    const stickiness = binderViscosity > 250 ? 'High' : 'Medium';
-    const bondingStrength = isActive ? Math.min(100, (molderTemperature / 2 + pressingTime * 2.5 + Math.random() * 2)).toFixed(1) : "0.0";
+
+    const sprayerFlow = isActive ? (binderVolume / 2.5).toFixed(1) : '0.0';
+    const sprayCycle = isActive ? (binderViscosity / 100).toFixed(1) : '0.0';
+    const potHeight = (10 + binderVolume / 10).toFixed(1);
+    const potWeight = (binderVolume * 0.85 + 5).toFixed(1);
+    const potThickness = (2 + binderViscosity / 500).toFixed(1);
+
+    const binderAbsorption = isActive ? Math.min(95, binderViscosity / 10 + binderVolume * 2).toFixed(1) : '0.0';
+    const stickiness = binderViscosity > 300 ? 'High' : binderViscosity > 150 ? 'Medium' : 'Low';
+    const bondingStrength = isActive
+      ? Math.min(100, molderTemperature / 2 + pressingTime * 2).toFixed(1)
+      : '0.0';
 
     return {
       sprayerFlow,
@@ -58,9 +56,13 @@ function App() {
       potThickness,
       binderAbsorption,
       stickiness,
-      bondingStrength
+      bondingStrength,
     };
-  }, [autoParams, phase, resetTrigger]);
+  }, [params, phase]);
+
+  const handleParamChange = useCallback((key: ParamKey, value: number) => {
+    setParams((prev) => ({ ...prev, [key]: value }));
+  }, []);
 
   const handlePlayPause = useCallback(() => {
     setPlaying((p) => !p);
@@ -114,7 +116,7 @@ function App() {
         <MoldingMachine
           playing={playing}
           speed={speed}
-          pressingTime={autoParams.pressingTime}
+          pressingTime={params.pressingTime}
           onPhaseChange={handlePhaseChange}
           onProgress={handleProgress}
           onPartClick={handlePartClick}
@@ -148,6 +150,8 @@ function App() {
           </span>
         </button>
       </div>
+
+      <ProcessControls params={params} onParamChange={handleParamChange} />
 
       <PhaseDisplay phase={phase} />
       {showData && <ProcessDataPanel data={processData} />}
