@@ -24,6 +24,9 @@ interface ProcessDataPanelProps {
       tone: 'ok' | 'low' | 'high';
       effect: string;
     }[];
+    wetMass: string;
+    binderMass: string;
+    waterLoss: string;
   };
 }
 
@@ -68,6 +71,24 @@ export default function ProcessDataPanel({ data }: ProcessDataPanelProps) {
                 <Weight size={12} /> Final Weight
               </span>
               <span className="text-white font-mono">{data.potWeight} g</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-500 flex items-center gap-1">
+                <Weight size={12} /> Wet Mass (Fiber+Binder)
+              </span>
+              <span className="text-white font-mono">{data.wetMass} g</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-500 flex items-center gap-1">
+                <Droplets size={12} /> Binder Mass
+              </span>
+              <span className="text-white font-mono">{data.binderMass} g</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-500 flex items-center gap-1">
+                <Droplets size={12} /> Water Loss
+              </span>
+              <span className="text-white font-mono">{data.waterLoss} g</span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-gray-500 flex items-center gap-1">

@@ -7,7 +7,8 @@ type ParamKey =
   | 'molderTemperature'
   | 'binderTankTemperature'
   | 'pressingTime'
-  | 'mixingTime';
+  | 'mixingTime'
+  | 'moistureLossScale';
 
 interface ProcessControlsProps {
   params: {
@@ -18,6 +19,7 @@ interface ProcessControlsProps {
     binderTankTemperature: number;
     pressingTime: number;
     mixingTime: number;
+    moistureLossScale: number;
   };
   onParamChange: (key: ParamKey, value: number) => void;
 }
@@ -112,6 +114,19 @@ export default function ProcessControls({ params, onParamChange }: ProcessContro
               type="number"
               value={params.mixingTime}
               onChange={(e) => onParamChange('mixingTime', Number(e.target.value))}
+              className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm text-[#00ff88] focus:border-[#00ff88] outline-none transition-colors"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase tracking-wider text-gray-500 font-bold flex items-center gap-1">
+              <Droplets size={12} /> Moisture Loss Scale
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              value={params.moistureLossScale}
+              onChange={(e) => onParamChange('moistureLossScale', Number(e.target.value))}
               className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm text-[#00ff88] focus:border-[#00ff88] outline-none transition-colors"
             />
           </div>

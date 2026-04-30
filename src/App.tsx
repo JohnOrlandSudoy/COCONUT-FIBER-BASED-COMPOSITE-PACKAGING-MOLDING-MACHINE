@@ -30,6 +30,7 @@ function App() {
     binderTankTemperature: 60,
     pressingTime: 8,
     mixingTime: 12,
+    moistureLossScale: 1,
   });
 
   type ParamKey = keyof typeof params;
@@ -55,6 +56,7 @@ function App() {
       binderTankTemperature,
       pressingTime,
       mixingTime,
+      moistureLossScale,
     } = params;
 
     const isActive = phase !== 'IDLE' && phase !== 'READY';
@@ -93,7 +95,8 @@ function App() {
 
     const binderMassG = Math.max(0, binderVolume) * 0.85;
     const Mf = clamp(0.22 - (molderTemperature - 80) * 0.0012 + Math.max(0, binderVolume) * 0.0001, 0.02, 0.22);
-    const waterLossG = (Math.max(0, fiberMass) + binderMassG) * Mf;
+    const wetMassG = Math.max(0, fiberMass) + binderMassG;
+    const waterLossG = wetMassG * Mf * clamp(moistureLossScale, 0, 3);
     const finalWeightG = Math.max(0, fiberMass) + binderMassG - waterLossG;
 
     const potWeight = finalWeightG.toFixed(1);
@@ -213,6 +216,9 @@ function App() {
       qualityLabel,
       qualityMeaning,
       thresholdsA,
+      wetMass: wetMassG.toFixed(1),
+      binderMass: binderMassG.toFixed(1),
+      waterLoss: waterLossG.toFixed(1),
     };
   }, [params, phase]);
 
